@@ -20,9 +20,9 @@ export function estimateTokens(content: string): TokenEstimation {
   const characters = content.length;
   // Code tends to have higher token density than english text.
   // Standard heuristics:
-  // GPT models (cl100k_base / o1): ~3.8 chars per token
-  // Claude models (claude-3): ~3.5 chars per token
-  // Gemini models: ~4.0 chars per token
+  // GPT models (cl100k_base / o1 / GPT-5): ~3.8 chars per token
+  // Claude models (claude-3 / Claude-4): ~3.5 chars per token
+  // Gemini models (Gemini-3 / 1.5): ~4.0 chars per token
   return {
     characters,
     gpt: Math.ceil(characters / 3.7),

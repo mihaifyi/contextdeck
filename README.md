@@ -17,7 +17,7 @@ No more manual copying of dozens of files, and no more exceeding LLM context win
 - **Interactive Local Dashboard**: Run `contextdeck --web` to launch a sleek, glassmorphic dark-mode web application on `localhost:3000`.
 - **Parent-Child Checkbox Inheritance**: Toggle entire directories, check file sizes, and filter codebases.
 - **Git-Aware & Custom Ignores**: Automatically parses `.gitignore` and `.deckignore` to filter binary files, dependencies, build folders, and environment files.
-- **Real-Time Token Estimator**: Project token counts on-the-fly for **OpenAI (GPT-4/o1)**, **Anthropic (Claude 3.5)**, and **Google (Gemini 1.5)**.
+- **Real-Time Token Estimator**: Project token counts on-the-fly for **OpenAI (GPT-5/GPT-4o)**, **Anthropic (Claude 4/3.5)**, and **Google (Gemini 3.5/1.5)**.
 - **Flexible Exporters**: Outputs context in clean, LLM-optimized schemas:
   - **XML Tagged** (recommended for AI parsing)
   - **Markdown**
