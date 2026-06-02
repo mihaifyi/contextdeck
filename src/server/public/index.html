@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ContextDeck | AI Codebase Bundler</title>
+  <!-- Google Fonts: Outfit & Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="logo-area">
+        <div class="logo-icon"></div>
+        <div class="logo-text">
+          <h1>ContextDeck</h1>
+          <p class="tagline">Visual Repository Context Bundler</p>
+        </div>
+      </div>
+      <div class="workspace-indicator">
+        <span class="indicator-dot"></span>
+        <span class="workspace-label">Workspace:</span>
+        <span class="workspace-path" id="workspacePath">Loading...</span>
+      </div>
+    </header>
+
+    <!-- Main Content Grid -->
+    <main class="app-main">
+      <!-- Left Column: File Explorer -->
+      <section class="explorer-card glass-panel">
+        <div class="card-header">
+          <div class="header-title">
+            <h2>Workspace Files</h2>
+            <span class="badge" id="fileCountBadge">0 files</span>
+          </div>
+          <div class="search-box">
+            <input type="text" id="fileSearch" placeholder="Search files (e.g. ts, utils)..." autocomplete="off">
+            <span class="search-icon">🔍</span>
+          </div>
+          <div class="selection-controls">
+            <button id="btnSelectAll" class="btn-text">Select All</button>
+            <span class="divider">|</span>
+            <button id="btnSelectNone" class="btn-text">Deselect All</button>
+            <span class="divider">|</span>
+            <button id="btnToggleFolders" class="btn-text">Collapse All</button>
+          </div>
+        </div>
+        
+        <div class="file-tree-container">
+          <div id="fileTree" class="file-tree">
+            <!-- Dynamic File Tree -->
+            <div class="loading-state">
+              <div class="spinner"></div>
+              <p>Scanning directory contents...</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Right Column: Settings & Export -->
+      <section class="control-panel">
+        <!-- Stats Card -->
+        <div class="stats-card glass-panel">
+          <div class="card-header">
+            <h2>Estimated Token Size</h2>
+          </div>
+          <div class="stats-grid">
+            <div class="stat-box gpt">
+              <div class="stat-value" id="statGpt">0</div>
+              <div class="stat-label">OpenAI Tokens</div>
+              <div class="stat-desc">GPT-4 / o1</div>
+            </div>
+            <div class="stat-box claude">
+              <div class="stat-value" id="statClaude">0</div>
+              <div class="stat-label">Anthropic Tokens</div>
+              <div class="stat-desc">Claude 3.5</div>
+            </div>
+            <div class="stat-box gemini">
+              <div class="stat-value" id="statGemini">0</div>
+              <div class="stat-label">Google Tokens</div>
+              <div class="stat-desc">Gemini 1.5</div>
+            </div>
+          </div>
+          
+          <div class="stats-meta">
+            <div class="meta-item">
+              <span class="meta-label">Selected Files:</span>
+              <span class="meta-value" id="selectedCount">0</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">Total Selected Size:</span>
+              <span class="meta-value" id="selectedSize">0 KB</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Options Card -->
+        <div class="options-card glass-panel">
+          <div class="card-header">
+            <h2>Bundling Settings</h2>
+          </div>
+          <div class="form-group">
+            <label class="section-label">Context Format</label>
+            <div class="radio-group">
+              <label class="radio-label">
+                <input type="radio" name="bundleFormat" value="xml" checked>
+                <div class="radio-tile">
+                  <span class="radio-title">XML Tagged</span>
+                  <span class="radio-desc">&lt;file path="..."&gt;</span>
+                </div>
+              </label>
+              <label class="radio-label">
+                <input type="radio" name="bundleFormat" value="markdown">
+                <div class="radio-tile">
+                  <span class="radio-title">Markdown</span>
+                  <span class="radio-desc">## File: filepath</span>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <div class="form-group toggle-group">
+            <div class="toggle-control">
+              <div>
+                <span class="toggle-title">Optimize Empty Lines</span>
+                <span class="toggle-desc">Removes empty lines and trailing spaces to save up to 25% tokens.</span>
+              </div>
+              <label class="switch">
+                <input type="checkbox" id="toggleClean" checked>
+                <span class="slider"></span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- Action Card -->
+        <div class="action-card glass-panel">
+          <button id="btnCopy" class="btn-primary" disabled>
+            <span class="btn-icon">📋</span>
+            <span class="btn-text-content">Copy Context to Clipboard</span>
+          </button>
+          <button id="btnDownload" class="btn-secondary" disabled>
+            <span class="btn-icon">📥</span>
+            <span class="btn-text-content">Download Context File</span>
+          </button>
+          <div class="toast" id="toast">Copied context to clipboard successfully!</div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
