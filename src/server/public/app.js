@@ -7,12 +7,14 @@ document.addEventListener('DOMContentLoaded', () => {
   let filesList = []; // Flat list from API
   let fileTreeRoot = null; // Nested tree structure
   const selectedPaths = new Set(); // Set of checked file relative paths
+  const activeExtensions = new Set(); // Filter configurations for file types
 
   // DOM Elements
   const workspacePathEl = document.getElementById('workspacePath');
   const fileCountBadgeEl = document.getElementById('fileCountBadge');
   const fileTreeEl = document.getElementById('fileTree');
   const searchInput = document.getElementById('fileSearch');
+  const extensionFiltersEl = document.getElementById('extensionFilters');
   
   // Controls
   const btnSelectAll = document.getElementById('btnSelectAll');
@@ -28,6 +30,19 @@ document.addEventListener('DOMContentLoaded', () => {
   const selectedCountEl = document.getElementById('selectedCount');
   const selectedSizeEl = document.getElementById('selectedSize');
 
+  // Gauges
+  const gaugeGpt = document.getElementById('gaugeGpt');
+  const gaugeClaude = document.getElementById('gaugeClaude');
+  const gaugeGemini = document.getElementById('gaugeGemini');
+  const gaugeLabelGpt = document.getElementById('gaugeLabelGpt');
+  const gaugeLabelClaude = document.getElementById('gaugeLabelClaude');
+  const gaugeLabelGemini = document.getElementById('gaugeLabelGemini');
+
+  // Breakdown Chart
+  const breakdownBar = document.getElementById('breakdownBar');
+  const breakdownLegend = document.getElementById('breakdownLegend');
+  const breakdownText = document.getElementById('breakdownText');
+
   // Actions
   const btnCopy = document.getElementById('btnCopy');
   const btnDownload = document.getElementById('btnDownload');
@@ -38,9 +53,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function init() {
     try {
-      // Set current path (extract from window location or default to local)
       workspacePathEl.textContent = 'Scanning...';
       
+      // Load saved settings from LocalStorage
+      loadSettings();
+
       const response = await fetch('/api/files');
       const data = await response.json();
       
@@ -56,10 +73,8 @@ document.addEventListener('DOMContentLoaded', () => {
       fileCountBadgeEl.textContent = `${totalFilesCount} files`;
       
       // Set title path
-      // Try to determine workspace name from path
       const rootSample = filesList.length > 0 ? filesList[0].absolutePath : '';
       if (rootSample) {
-        // Simple extraction of root path
         const relativePart = filesList[0].relativePath;
         const separator = rootSample.includes('\\') ? '\\' : '/';
         const rootPath = rootSample.substring(0, rootSample.lastIndexOf(relativePart) - 1);
@@ -67,6 +82,9 @@ document.addEventListener('DOMContentLoaded', () => {
       } else {
         workspacePathEl.textContent = 'Empty Directory';
       }
+
+      // Populate file type filter badges
+      renderExtensionFilters();
 
       // Build Tree
       fileTreeRoot = buildTree(filesList);
@@ -96,6 +114,118 @@ document.addEventListener('DOMContentLoaded', () => {
         <p>${msg}</p>
       </div>
     `;
+  }
+
+  // --- Local Settings Persistence ---
+
+  function loadSettings() {
+    const savedFormat = localStorage.getItem('deck_format');
+    const savedClean = localStorage.getItem('deck_clean');
+
+    if (savedFormat) {
+      Array.from(radioFormats).forEach(radio => {
+        radio.checked = radio.value === savedFormat;
+      });
+    }
+    if (savedClean !== null) {
+      toggleClean.checked = savedClean === 'true';
+    }
+  }
+
+  function saveSettings() {
+    localStorage.setItem('deck_format', getSelectedFormat());
+    localStorage.setItem('deck_clean', toggleClean.checked);
+  }
+
+  // --- Dynamic File Type Badges ---
+
+  function renderExtensionFilters() {
+    const extensions = new Set();
+    filesList.forEach(file => {
+      if (!file.isDirectory) {
+        const parts = file.relativePath.split('.');
+        if (parts.length > 1) {
+          extensions.add('.' + parts.pop().toLowerCase());
+        } else {
+          extensions.add('no-ext');
+        }
+      }
+    });
+
+    extensionFiltersEl.innerHTML = '';
+    const sortedExts = Array.from(extensions).sort();
+
+    sortedExts.forEach(ext => {
+      const badge = document.createElement('span');
+      badge.className = 'extension-badge';
+      badge.textContent = ext;
+      badge.dataset.ext = ext;
+      
+      badge.addEventListener('click', () => {
+        const isActive = badge.classList.toggle('active');
+        if (isActive) {
+          activeExtensions.add(ext);
+        } else {
+          activeExtensions.delete(ext);
+        }
+        applyFilters();
+      });
+
+      extensionFiltersEl.appendChild(badge);
+    });
+  }
+
+  // Combine search and extension filters
+  function applyFilters() {
+    const query = searchInput.value.toLowerCase().trim();
+    const nodes = fileTreeEl.querySelectorAll('.tree-node');
+
+    nodes.forEach(node => {
+      const path = node.dataset.path.toLowerCase();
+      const label = node.querySelector('.tree-label').textContent.toLowerCase();
+      
+      // Check search match
+      const searchMatches = !query || label.includes(query) || path.includes(query);
+      
+      // Check extension match
+      let extMatches = true;
+      if (activeExtensions.size > 0) {
+        const isDir = !!node.querySelector('.folder-children');
+        if (!isDir) {
+          const parts = path.split('.');
+          const ext = parts.length > 1 ? '.' + parts.pop() : 'no-ext';
+          extMatches = activeExtensions.has(ext);
+        }
+      }
+
+      if (searchMatches && extMatches) {
+        node.style.display = 'block';
+        
+        // Show parents
+        let parent = node.parentElement.closest('.tree-node');
+        while (parent) {
+          parent.style.display = 'block';
+          const childContainer = parent.querySelector('.folder-children');
+          if (childContainer) childContainer.classList.remove('collapsed');
+          const chevron = parent.querySelector('.folder-toggle');
+          if (chevron) chevron.classList.remove('collapsed');
+          parent = parent.parentElement.closest('.tree-node');
+        }
+      } else {
+        node.style.display = 'none';
+      }
+    });
+
+    // Make folders visible if they contain matching children
+    nodes.forEach(node => {
+      const children = node.querySelector('.folder-children');
+      if (children) {
+        const visibleChildren = Array.from(children.children).some(child => child.style.display !== 'none');
+        if (visibleChildren) {
+          node.style.display = 'block';
+        }
+      }
+    });
   }
 
   // --- Tree Processing ---
@@ -137,7 +267,6 @@ document.addEventListener('DOMContentLoaded', () => {
   function renderTree(node, parentElement) {
     parentElement.innerHTML = '';
     
-    // Convert children object to sorted array (directories first, then alphabetically)
     const children = Object.values(node.children).sort((a, b) => {
       if (a.isDirectory && !b.isDirectory) return -1;
       if (!a.isDirectory && b.isDirectory) return 1;
@@ -152,7 +281,6 @@ document.addEventListener('DOMContentLoaded', () => {
       const rowEl = document.createElement('div');
       rowEl.className = 'tree-row';
 
-      // Toggle chevron for folders
       let toggleHtml = '';
       if (child.isDirectory && Object.keys(child.children).length > 0) {
         toggleHtml = `<span class="folder-toggle">▼</span>`;
@@ -160,14 +288,12 @@ document.addEventListener('DOMContentLoaded', () => {
         toggleHtml = `<span class="folder-toggle" style="opacity: 0; pointer-events: none;">▼</span>`;
       }
 
-      // Checkbox
       const checkboxHtml = `
         <span class="checkbox-container">
           <input type="checkbox" class="tree-checkbox" data-path="${child.relativePath}">
         </span>
       `;
 
-      // Icon & Label
       const icon = child.isDirectory ? '📁' : getFileIcon(child.name);
       const sizeHtml = child.isDirectory ? '' : `<span class="tree-size">${formatBytes(child.size)}</span>`;
       
@@ -181,14 +307,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
       nodeEl.appendChild(rowEl);
 
-      // Children Container if Directory
       if (child.isDirectory) {
         const childrenContainer = document.createElement('div');
         childrenContainer.className = 'folder-children';
         renderTree(child, childrenContainer);
         nodeEl.appendChild(childrenContainer);
 
-        // Folder expand/collapse logic
         const toggleBtn = rowEl.querySelector('.folder-toggle');
         toggleBtn.addEventListener('click', (e) => {
           e.stopPropagation();
@@ -197,7 +321,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
       }
 
-      // Checkbox click logic
       const checkbox = rowEl.querySelector('.tree-checkbox');
       checkbox.addEventListener('change', (e) => {
         const isChecked = e.target.checked;
@@ -206,7 +329,6 @@ document.addEventListener('DOMContentLoaded', () => {
         updateStats();
       });
 
-      // Clicking row (outside checkbox/toggle) toggles selection
       rowEl.addEventListener('click', (e) => {
         if (e.target.classList.contains('tree-checkbox') || e.target.classList.contains('folder-toggle')) return;
         const cb = rowEl.querySelector('.tree-checkbox');
@@ -218,10 +340,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Handle checking folder updates all children recursively
   function handleCheckboxChange(node, isChecked) {
     if (node.isDirectory) {
-      // Recursively toggle all child nodes
       function toggleAllChildren(n) {
         if (!n.isDirectory) {
           if (isChecked) selectedPaths.add(n.relativePath);
@@ -239,7 +359,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // Update check visual state, checking intermediate states of parent folder checkboxes
   function updateAllCheckboxes() {
     const checkboxes = fileTreeEl.querySelectorAll('.tree-checkbox');
     checkboxes.forEach(cb => {
@@ -265,7 +384,6 @@ document.addEventListener('DOMContentLoaded', () => {
         cb.classList.remove('indeterminate');
       }
 
-      // Toggle class on the row
       const row = cb.closest('.tree-row');
       if (row) {
         row.classList.toggle('selected', cb.checked || cb.classList.contains('indeterminate'));
@@ -306,28 +424,31 @@ document.addEventListener('DOMContentLoaded', () => {
     return node;
   }
 
-  // --- Real-time statistics ---
+  // --- Real-time statistics & Breakdown ---
 
   function updateStats() {
     let totalBytes = 0;
     let selectedFiles = 0;
+    const breakdown = {};
 
     filesList.forEach(file => {
       if (!file.isDirectory && selectedPaths.has(file.relativePath)) {
         totalBytes += file.size;
         selectedFiles++;
+
+        // Process extension grouping
+        const parts = file.relativePath.split('.');
+        const ext = parts.length > 1 ? '.' + parts.pop().toLowerCase() : 'no-ext';
+        breakdown[ext] = (breakdown[ext] || 0) + file.size;
       }
     });
 
     selectedCountEl.textContent = selectedFiles;
     selectedSizeEl.textContent = formatBytes(totalBytes);
 
-    // Apply token reduction if clean mode is enabled
-    // Removing comments and spaces reduces character payload by ~18% in codebases
     const cleanReduction = toggleClean.checked ? 0.82 : 1.0;
     const estimatedChars = Math.ceil(totalBytes * cleanReduction);
 
-    // Token multipliers based on standard heuristics
     const tokensGpt = Math.ceil(estimatedChars / 3.7);
     const tokensClaude = Math.ceil(estimatedChars / 3.4);
     const tokensGemini = Math.ceil(estimatedChars / 4.0);
@@ -336,22 +457,98 @@ document.addEventListener('DOMContentLoaded', () => {
     statClaude.textContent = totalBytes === 0 ? '0' : formatNumber(tokensClaude);
     statGemini.textContent = totalBytes === 0 ? '0' : formatNumber(tokensGemini);
 
-    // Enable/disable buttons based on selection
+    // Update capacity gauges (Latest 2026 limits: GPT-5 128k, Claude-4 200k, Gemini-3.5 2M)
+    const limitGpt = 128000;
+    const limitClaude = 200000;
+    const limitGemini = 2000000;
+
+    const pctGpt = Math.min((tokensGpt / limitGpt) * 100, 100);
+    const pctClaude = Math.min((tokensClaude / limitClaude) * 100, 100);
+    const pctGemini = Math.min((tokensGemini / limitGemini) * 100, 100);
+
+    gaugeGpt.style.width = `${pctGpt}%`;
+    gaugeClaude.style.width = `${pctClaude}%`;
+    gaugeGemini.style.width = `${pctGemini}%`;
+
+    gaugeLabelGpt.textContent = `${pctGpt.toFixed(1)}% of 128k limit`;
+    gaugeLabelClaude.textContent = `${pctClaude.toFixed(1)}% of 200k limit`;
+    gaugeLabelGemini.textContent = `${pctGemini.toFixed(1)}% of 2M limit`;
+
+    // Render segmented composition bar
+    renderBreakdownBar(breakdown, totalBytes);
+
     const disabled = selectedFiles === 0;
     btnCopy.disabled = disabled;
     btnDownload.disabled = disabled;
   }
 
+  // Segmented multi-color language progress bar and legends
+  function renderBreakdownBar(breakdown, totalBytes) {
+    breakdownBar.innerHTML = '';
+    breakdownLegend.innerHTML = '';
+
+    if (totalBytes === 0) {
+      breakdownText.textContent = '0% mapped';
+      return;
+    }
+
+    breakdownText.textContent = 'Composition calculated';
+
+    const sortedBreakdowns = Object.entries(breakdown).sort((a, b) => b[1] - a[1]);
+    
+    // Core extensions configurations
+    const themeColors = {
+      '.ts': '#007acc',
+      '.tsx': '#3178c6',
+      '.js': '#f7df1e',
+      '.jsx': '#f1e05a',
+      '.html': '#e34c26',
+      '.css': '#563d7c',
+      '.json': '#8c8c8c',
+      '.md': '#083fa6',
+      'no-ext': '#4f46e5'
+    };
+
+    let mappedPercentage = 0;
+
+    sortedBreakdowns.forEach(([ext, size]) => {
+      const pct = (size / totalBytes) * 100;
+      if (pct < 1) return; // Skip tiny elements for visual precision
+
+      const color = themeColors[ext] || '#8b5cf6';
+
+      // Bar segment
+      const segment = document.createElement('div');
+      segment.className = 'breakdown-segment';
+      segment.style.width = `${pct}%`;
+      segment.style.backgroundColor = color;
+      segment.title = `${ext}: ${pct.toFixed(1)}% (${formatBytes(size)})`;
+      breakdownBar.appendChild(segment);
+
+      // Legend Item
+      const legendItem = document.createElement('div');
+      legendItem.className = 'legend-item';
+      legendItem.innerHTML = `
+        <span class="legend-dot" style="background-color: ${color};"></span>
+        <span><strong>${ext}</strong> (${pct.toFixed(0)}%)</span>
+      `;
+      breakdownLegend.appendChild(legendItem);
+
+      mappedPercentage += pct;
+    });
+
+    if (mappedPercentage === 0) {
+      breakdownText.textContent = 'No text files selected';
+    }
+  }
+
   // --- Event Handlers & Subscriptions ---
 
   function setupEventListeners() {
-    // Search filter
-    searchInput.addEventListener('input', (e) => {
-      const query = e.target.value.toLowerCase().trim();
-      filterFileTree(query);
+    searchInput.addEventListener('input', () => {
+      applyFilters();
     });
 
-    // Select All
     btnSelectAll.addEventListener('click', () => {
       filesList.forEach(f => {
         if (!f.isDirectory) selectedPaths.add(f.relativePath);
@@ -360,14 +557,12 @@ document.addEventListener('DOMContentLoaded', () => {
       updateStats();
     });
 
-    // Deselect All
     btnSelectNone.addEventListener('click', () => {
       selectedPaths.clear();
       updateAllCheckboxes();
       updateStats();
     });
 
-    // Collapse All / Expand All Folders
     let allCollapsed = false;
     btnToggleFolders.addEventListener('click', () => {
       allCollapsed = !allCollapsed;
@@ -385,15 +580,18 @@ document.addEventListener('DOMContentLoaded', () => {
       btnToggleFolders.textContent = allCollapsed ? 'Expand All' : 'Collapse All';
     });
 
-    // Switch config changed
-    toggleClean.addEventListener('change', updateStats);
-
-    // Format changes
-    Array.from(radioFormats).forEach(radio => {
-      radio.addEventListener('change', updateStats);
+    toggleClean.addEventListener('change', () => {
+      updateStats();
+      saveSettings();
     });
 
-    // Copy to Clipboard Action
+    Array.from(radioFormats).forEach(radio => {
+      radio.addEventListener('change', () => {
+        updateStats();
+        saveSettings();
+      });
+    });
+
     btnCopy.addEventListener('click', async () => {
       const bundleData = await generateBundle();
       if (!bundleData) return;
@@ -402,7 +600,6 @@ document.addEventListener('DOMContentLoaded', () => {
         await navigator.clipboard.writeText(bundleData.bundle);
         showToast('Copied context successfully!');
         
-        // Update precise token stats from the actual generated bundle size
         const preciseStats = bundleData.tokenStats;
         statGpt.textContent = formatNumber(preciseStats.gpt);
         statClaude.textContent = formatNumber(preciseStats.claude);
@@ -412,7 +609,6 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
 
-    // Download File Action
     btnDownload.addEventListener('click', async () => {
       const bundleData = await generateBundle();
       if (!bundleData) return;
@@ -435,9 +631,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Fetch bundle payload from the local express / node API
   async function generateBundle() {
-    const originalText = btnCopy.querySelector('.btn-text-content').textContent;
     setLoadingState(true);
 
     try {
@@ -486,63 +680,6 @@ document.addEventListener('DOMContentLoaded', () => {
       btnDownload.disabled = false;
       btnCopy.querySelector('.btn-text-content').textContent = 'Copy Context to Clipboard';
     }
-  }
-
-  // --- Filtering & Searching Tree Nodes ---
-
-  function filterFileTree(query) {
-    const nodes = fileTreeEl.querySelectorAll('.tree-node');
-    
-    if (!query) {
-      // Clear filters and show everything
-      nodes.forEach(node => {
-        node.style.display = 'block';
-        const children = node.querySelector('.folder-children');
-        if (children) children.classList.remove('collapsed');
-        const chevron = node.querySelector('.folder-toggle');
-        if (chevron) chevron.classList.remove('collapsed');
-      });
-      btnToggleFolders.textContent = 'Collapse All';
-      return;
-    }
-
-    // Determine matches and display accordingly
-    nodes.forEach(node => {
-      const path = node.dataset.path.toLowerCase();
-      const label = node.querySelector('.tree-label').textContent.toLowerCase();
-      
-      const matches = label.includes(query) || path.includes(query);
-      const isDir = !!node.querySelector('.folder-children');
-
-      if (matches) {
-        node.style.display = 'block';
-        
-        // Show all parents of this node so it is visible in tree context
-        let parent = node.parentElement.closest('.tree-node');
-        while (parent) {
-          parent.style.display = 'block';
-          const childContainer = parent.querySelector('.folder-children');
-          if (childContainer) childContainer.classList.remove('collapsed');
-          const chevron = parent.querySelector('.folder-toggle');
-          if (chevron) chevron.classList.remove('collapsed');
-          parent = parent.parentElement.closest('.tree-node');
-        }
-      } else {
-        node.style.display = 'none';
-      }
-    });
-
-    // Make sure folder rows that have visible children remain visible
-    nodes.forEach(node => {
-      const children = node.querySelector('.folder-children');
-      if (children) {
-        // If directory has any children that are visible, make directory block visible
-        const visibleChildren = Array.from(children.children).some(child => child.style.display !== 'none');
-        if (visibleChildren) {
-          node.style.display = 'block';
-        }
-      }
-    });
   }
 
   // --- Toast ---

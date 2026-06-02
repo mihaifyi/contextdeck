@@ -41,6 +41,12 @@
             <input type="text" id="fileSearch" placeholder="Search files (e.g. ts, utils)..." autocomplete="off">
             <span class="search-icon">🔍</span>
           </div>
+          <div class="filter-extensions-container">
+            <span class="filter-label">Filter by type:</span>
+            <div id="extensionFilters" class="extension-filters">
+              <!-- Dynamically populated extension badges -->
+            </div>
+          </div>
           <div class="selection-controls">
             <button id="btnSelectAll" class="btn-text">Select All</button>
             <span class="divider">|</span>
@@ -59,6 +65,18 @@
             </div>
           </div>
         </div>
+        
+        <!-- Language Composition Breakdown -->
+        <div class="language-breakdown-card">
+          <div class="breakdown-header">
+            <span class="breakdown-title">Code Composition</span>
+            <span id="breakdownText" class="breakdown-text">0% mapped</span>
+          </div>
+          <div class="breakdown-bar-container">
+            <div class="breakdown-bar" id="breakdownBar"></div>
+          </div>
+          <div class="breakdown-legend" id="breakdownLegend"></div>
+        </div>
       </section>
 
       <!-- Right Column: Settings & Export -->
@@ -73,16 +91,28 @@
               <div class="stat-value" id="statGpt">0</div>
               <div class="stat-label">OpenAI Tokens</div>
               <div class="stat-desc">GPT-5 / GPT-4o</div>
+              <div class="gauge-container">
+                <div class="gauge-bar" id="gaugeGpt"></div>
+              </div>
+              <div class="gauge-label" id="gaugeLabelGpt">0% of 128k limit</div>
             </div>
             <div class="stat-box claude">
               <div class="stat-value" id="statClaude">0</div>
               <div class="stat-label">Anthropic Tokens</div>
               <div class="stat-desc">Claude 4 / 3.5</div>
+              <div class="gauge-container">
+                <div class="gauge-bar" id="gaugeClaude"></div>
+              </div>
+              <div class="gauge-label" id="gaugeLabelClaude">0% of 200k limit</div>
             </div>
             <div class="stat-box gemini">
               <div class="stat-value" id="statGemini">0</div>
               <div class="stat-label">Google Tokens</div>
               <div class="stat-desc">Gemini 3.5 / 1.5</div>
+              <div class="gauge-container">
+                <div class="gauge-bar" id="gaugeGemini"></div>
+              </div>
+              <div class="gauge-label" id="gaugeLabelGemini">0% of 2M limit</div>
             </div>
           </div>
           
